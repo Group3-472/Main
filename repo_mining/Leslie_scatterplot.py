@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
 from ast import literal_eval
-
+from datetime import datetime
 # Read the data into a list using literal_eval
 # Returns a list of filenames along with a list of those files' commits
 
@@ -70,41 +70,23 @@ def get_author_data(commitData: list):
 
 # Translate dates into weeks
 
-def date_to_weeks(date: str) -> float:
-    
-    # Extract years
+def date_to_weeks(date_str: str, base_year: int = 1950) -> float:
+	try:
+		# Parse the input date using `datetime.strptime`
+		date = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%SZ')
 
-    delimitIndex = date.find('-')
-    
-    if delimitIndex == -1:
-        return -1
-    
-    # Convert years to days and subtract a constant
-    output = 365 * (float(date[:delimitIndex]) - 1950)
+		# Define a reference date starting at January 1st of `base_year`
+		base_date = datetime(base_year, 1, 1)
 
-    date = date[delimitIndex+1:]
+		# Calculate the difference in days between the given date and the base date
+		delta = (date - base_date).days
 
-    # Extract months
+		# Convert days to weeks
+		return delta / 7
+	except ValueError:
+		# Return -1 if there is an error with parsing the date
+		return -1
 
-    delimitIndex = date.find('-')
-
-    if delimitIndex == -1:
-        return -2
-
-    output += float(date[:delimitIndex]) * 30.5
-
-    date = date[delimitIndex+1:]
-
-    # Extract days
-
-    delimitIndex = date.find('T')
-
-    if delimitIndex == -1:
-        return -3
-    
-    output += float(date[:delimitIndex])
-
-    return output / 7.0
 
 # Get the earliest week to subtract from other dates
 
