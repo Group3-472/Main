@@ -60,94 +60,50 @@ return;
 
 
 function output = localThreshold(processImage, imageTop, imageBot, windowSize, thresholdFactor)
-    
-    output = processImage;
 
-    maxR = height(output);
-    maxC = width(output);
+    output = double(processImage);  % Work with double for precision
 
-    topR = 1;
-    topC = 1;
+    % Precompute the integral image
+    integralImg = cumsum(cumsum(output, 2), 1);
 
-    botR = windowSize;
-    botC = windowSize;
+    [maxR, maxC] = size(output);
 
-    while topR <= maxR
-
-        % If the bottom of the window is in the image, cut off at the image
-        if botR > imageTop && botR < imageBot
-            botR = imageTop;
-        end 
-
-        % If the row of the window goes off the image, cut off extra r's
-        if botR > maxR
-            botR = maxR;
-        end
-
-        if topR > imageTop && topR < imageBot
-            % Deletes image
-            for r = imageTop:imageBot
-                for c = 1:maxC
-                    output(r,c) = 1;
-                end
-            end
-
-            topR = imageBot + 1;
-            botR = topR + windowSize -1;
-        else
-
-            while topC <= maxC
-                
-                % Get local average
-                localMean = 0;
-                totalPixels = 0;
-    
-                for r = topR:botR
-                    for c = topC:botC
-                        localMean = localMean + double(output(r,c));
-                        totalPixels = totalPixels + 1;
-                    end
-                end
-    
-                localMean = localMean/totalPixels;
-                T = localMean * thresholdFactor;
-    
-                % Threshold image region
-                for r = topR:botR
-                    for c = topC:botC
-                        if output(r,c) < T
-                            output(r,c) = 0;
-                        else
-                            output(r,c) = 1;
-                        end
-                    end
-                end
-
-                % Change c values
-
-                topC = botC + 1;
-                botC = topC + windowSize - 1;
-
-                % If the column of the window goes off the image, cut off extra c's
-                if botC > maxC
-                    botC = maxC;
-                end
-
-            end
-            
-            % Reset topC and botC
-            topC = 1;
-            botC = windowSize;
-            
-        end
-
-        % Increase topR and botR
-        topR = botR + 1;
-        botR = topR + windowSize - 1;
-        
+    % Clear the specified region once at the start
+    if imageTop > 0 && imageBot > 0
+        output(imageTop:imageBot, :) = 1;
     end
 
-    output = logical(output);
+    % Main loop with window traversal
+    for topR = 1:windowSize:maxR
+        botR = min(topR + windowSize - 1, maxR);
 
+        for topC = 1:windowSize:maxC
+            botC = min(topC + windowSize - 1, maxC);
+
+            % Calculate local mean using the integral image
+            totalPixels = (botR - topR + 1) * (botC - topC + 1);
+            localSum = getWindowSum(integralImg, topR, botR, topC, botC);
+            localMean = localSum / totalPixels;
+            T = localMean * thresholdFactor;
+
+            % Threshold the window (vectorized operation)
+            window = output(topR:botR, topC:botC);
+            window(window < T) = 0;
+            window(window >= T) = 1;
+            output(topR:botR, topC:botC) = window;
+
+        end
+    end
+
+    output = logical(output);  % Convert to logical once at the end
 end
+
+% Helper function to get window sum from integral image
+function s = getWindowSum(integralImg, topR, botR, topC, botC)
+    s = integralImg(botR, botC) ...
+        - (topR > 1) * integralImg(topR, botC) ...
+        - (topC > 1) * integralImg(botR, topC) ...
+        + (topR > 1 && topC > 1) * integralImg(topR, topC);
+end
+
 
